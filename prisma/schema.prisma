@@ -1,0 +1,543 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User roles
+enum UserRole {
+  CLIENT
+  EMPLOYEE
+  TEAM_LEADER
+  BRANCH_ADMIN
+  BRANCH_MANAGER
+  HR
+  SUPER_ADMIN
+}
+
+// User status
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  ON_LEAVE
+}
+
+// User model
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  password          String
+  role              UserRole
+  status            UserStatus @default(ACTIVE)
+  firstName         String
+  lastName          String
+  phone             String?
+  address           String?
+  profileImage      String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  employee          Employee?
+  client            Client?
+  teamLeader        TeamLeader?
+  branchAdmin       BranchAdmin?
+  branchManager     BranchManager?
+  superAdmin        SuperAdmin?
+
+  // Activity logs
+  activityLogs      ActivityLog[]
+
+  // Notifications
+  notifications     Notification[]
+
+  // Enhanced Notification System
+  notificationCampaigns NotificationCampaign[]
+  notificationDeliveries NotificationDelivery[]
+
+  // Enhanced Leave System Relations
+  primaryLeaveApprovals LeaveRequest[] @relation("PrimaryLeaveApprover")
+  finalLeaveApprovals   LeaveRequest[] @relation("FinalLeaveApprover")
+}
+
+// Employee model
+model Employee {
+  id                String    @id @default(uuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId        String    @unique
+  designation       String
+  department        String
+  joiningDate       DateTime
+  salary            Float
+  bankAccountNo     String?
+  ifscCode          String?
+  panCard           String?
+  aadharCard        String?
+  teamId            String?
+  team              Team?     @relation(fields: [teamId], references: [id])
+  branchId          String
+  branch            Branch    @relation(fields: [branchId], references: [id])
+
+  // Relations
+  attendances       Attendance[]
+  attendanceNotifications AttendanceNotification[]
+  tasks             Task[]
+  documents         Document[]
+  payrolls          Payroll[]
+
+  // Enhanced Leave System Relations
+  leaveRequests     LeaveRequest[]
+  leaveBalances     LeaveBalance[]
+  balanceAdjustments LeaveBalanceAdjustment[]
+
+  @@index([teamId])
+  @@index([branchId])
+}
+
+// Client model
+model Client {
+  id                String    @id @default(uuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId          String    @unique
+  companyName       String?
+  industry          String?
+  gstNumber         String?
+  branchId          String
+  branch            Branch    @relation(fields: [branchId], references: [id])
+
+  // Relations
+  projects          Project[]
+
+  @@index([branchId])
+}
+
+// Team Leader model
+model TeamLeader {
+  id                String    @id @default(uuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relations
+  teams             Team[]
+}
+
+// Branch Admin model
+model BranchAdmin {
+  id                String    @id @default(uuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branchId          String
+  branch            Branch    @relation(fields: [branchId], references: [id])
+
+  @@index([branchId])
+}
+
+// Branch Manager/HR model
+model BranchManager {
+  id                String    @id @default(uuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branchId          String
+  branch            Branch    @relation(fields: [branchId], references: [id])
+
+  @@index([branchId])
+}
+
+// Super Admin model
+model SuperAdmin {
+  id                String    @id @default(uuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Branch model
+model Branch {
+  id                String    @id @default(uuid())
+  name              String
+  address           String
+  city              String
+  state             String
+  country           String
+  pincode           String
+  phone             String?
+  email             String?
+
+  // Relations
+  employees         Employee[]
+  clients           Client[]
+  branchAdmins      BranchAdmin[]
+  branchManagers    BranchManager[]
+  teams             Team[]
+}
+
+// Team model
+model Team {
+  id                String    @id @default(uuid())
+  name              String
+  description       String?
+  teamLeaderId      String
+  teamLeader        TeamLeader @relation(fields: [teamLeaderId], references: [id])
+  branchId          String
+  branch            Branch    @relation(fields: [branchId], references: [id])
+
+  // Relations
+  employees         Employee[]
+  projects          Project[]
+
+  @@index([teamLeaderId])
+  @@index([branchId])
+}
+
+// Project model
+model Project {
+  id                String    @id @default(uuid())
+  name              String
+  description       String?
+  startDate         DateTime
+  endDate           DateTime?
+  status            String    // Active, Completed, On Hold, Cancelled
+  clientId          String
+  client            Client    @relation(fields: [clientId], references: [id])
+  teamId            String
+  team              Team      @relation(fields: [teamId], references: [id])
+
+  // Relations
+  tasks             Task[]
+
+  @@index([clientId])
+  @@index([teamId])
+}
+
+// Task model
+model Task {
+  id                String    @id @default(uuid())
+  title             String
+  description       String?
+  status            String    // To Do, In Progress, Review, Done
+  priority          String    // Low, Medium, High
+  dueDate           DateTime?
+  projectId         String
+  project           Project   @relation(fields: [projectId], references: [id])
+  assigneeId        String
+  assignee          Employee  @relation(fields: [assigneeId], references: [id])
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([projectId])
+  @@index([assigneeId])
+}
+
+// Attendance model
+model Attendance {
+  id                String    @id @default(uuid())
+  employeeId        String
+  employee          Employee  @relation(fields: [employeeId], references: [id])
+  date              DateTime  @default(now())
+  checkIn           DateTime?
+  checkOut          DateTime?
+  status            String    // Present, Absent, Half Day, Late, On Leave
+  workHours         Float?
+  notes             String?
+
+  @@index([employeeId])
+  @@unique([employeeId, date])
+}
+
+// Attendance Notification model
+model AttendanceNotification {
+  id                String    @id @default(uuid())
+  employeeId        String
+  employee          Employee  @relation(fields: [employeeId], references: [id])
+  type              String    // Absent, Late, Irregular, Leave
+  message           String
+  date              DateTime
+  isRead            Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+
+  @@index([employeeId])
+}
+
+// Enhanced Two-Tier Leave Approval System
+enum LeaveStatus {
+  PENDING               // Initial submission
+  PRIMARY_APPROVED      // Approved by Branch Admin/HR
+  FINAL_APPROVED        // Approved by Super Admin (final)
+  PRIMARY_REJECTED      // Rejected by Branch Admin/HR
+  FINAL_REJECTED        // Rejected by Super Admin
+  CANCELLED             // Cancelled by employee
+  WITHDRAWN             // Withdrawn by employee
+}
+
+enum LeaveType {
+  CASUAL
+  SICK
+  ANNUAL
+  MATERNITY
+  PATERNITY
+  UNPAID
+  EMERGENCY
+  BEREAVEMENT
+  OTHER
+}
+
+enum LeavePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model LeaveRequest {
+  id                    String        @id @default(uuid())
+  employeeId            String
+  employee              Employee      @relation(fields: [employeeId], references: [id])
+  leaveType             LeaveType
+  priority              LeavePriority @default(MEDIUM)
+  startDate             DateTime
+  endDate               DateTime
+  totalDays             Int
+  reason                String
+  attachmentUrl         String?       // For medical certificates, etc.
+
+  // Current status and workflow
+  status                LeaveStatus   @default(PENDING)
+  currentApprovalLevel  Int           @default(1) // 1 = Primary, 2 = Final
+
+  // Primary Approval (Branch Admin/HR)
+  primaryApproverId     String?
+  primaryApprover       User?         @relation("PrimaryLeaveApprover", fields: [primaryApproverId], references: [id])
+  primaryApprovedAt     DateTime?
+  primaryComments       String?
+
+  // Final Approval (Super Admin)
+  finalApproverId       String?
+  finalApprover         User?         @relation("FinalLeaveApprover", fields: [finalApproverId], references: [id])
+  finalApprovedAt       DateTime?
+  finalComments         String?
+
+  // Rejection details
+  rejectionReason       String?
+  rejectedBy            String?       // User ID who rejected
+  rejectedAt            DateTime?
+
+  // System tracking
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  // Relations
+  balanceAdjustments    LeaveBalanceAdjustment[]
+
+  @@index([employeeId])
+  @@index([primaryApproverId])
+  @@index([finalApproverId])
+  @@index([status])
+  @@index([startDate])
+}
+
+// Leave Balance Management
+model LeaveBalance {
+  id                String    @id @default(uuid())
+  employeeId        String
+  employee          Employee  @relation(fields: [employeeId], references: [id])
+  year              Int
+  leaveType         LeaveType
+
+  // Balance tracking
+  totalAllowed      Int       // Total days allowed per year
+  used              Int       @default(0)
+  pending           Int       @default(0) // Days in pending requests
+  available         Int       // Calculated: totalAllowed - used - pending
+
+  // Carry forward from previous year
+  carriedForward    Int       @default(0)
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([employeeId, year, leaveType])
+  @@index([employeeId])
+}
+
+// Leave Balance Adjustments (for tracking changes)
+model LeaveBalanceAdjustment {
+  id                String       @id @default(uuid())
+  leaveRequestId    String
+  leaveRequest      LeaveRequest @relation(fields: [leaveRequestId], references: [id])
+  employeeId        String
+  employee          Employee     @relation(fields: [employeeId], references: [id])
+  leaveType         LeaveType
+  year              Int
+
+  // Adjustment details
+  adjustmentType    String       // DEDUCT, RESTORE, CARRY_FORWARD
+  days              Int
+  reason            String
+
+  // Tracking
+  adjustedBy        String       // User ID who made adjustment
+  adjustedAt        DateTime     @default(now())
+
+  @@index([leaveRequestId])
+  @@index([employeeId])
+}
+
+// Leave Policy Configuration
+model LeavePolicy {
+  id                String    @id @default(uuid())
+  leaveType         LeaveType
+
+  // Policy rules
+  maxDaysPerYear    Int
+  maxConsecutiveDays Int?
+  minAdvanceNotice  Int       // Days of advance notice required
+  requiresApproval  Boolean   @default(true)
+  carryForwardDays  Int       @default(0)
+
+  // Eligibility
+  minServiceMonths  Int       @default(0) // Minimum service required
+  applicableRoles   String?   // JSON string of applicable roles
+
+  // System
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([leaveType])
+}
+
+// Payroll model
+model Payroll {
+  id                String    @id @default(uuid())
+  employeeId        String
+  employee          Employee  @relation(fields: [employeeId], references: [id])
+  month             Int
+  year              Int
+  basicSalary       Float
+  allowances        Float
+  deductions        Float
+  netSalary         Float
+  paymentDate       DateTime?
+  paymentStatus     String    // Pending, Paid, Failed
+  paymentMethod     String?   // Bank Transfer, Cash, Cheque
+  transactionId     String?
+
+  @@index([employeeId])
+  @@unique([employeeId, month, year])
+}
+
+// Document model
+model Document {
+  id                String    @id @default(uuid())
+  employeeId        String
+  employee          Employee  @relation(fields: [employeeId], references: [id])
+  documentType      String    // Resume, ID Proof, Address Proof, etc.
+  documentName      String
+  documentUrl       String
+  uploadedAt        DateTime  @default(now())
+
+  @@index([employeeId])
+}
+
+// Activity Log model
+model ActivityLog {
+  id                String    @id @default(uuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id])
+  action            String
+  details           String?
+  ipAddress         String?
+  userAgent         String?
+  timestamp         DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// Enhanced Notification System for Super Admin
+
+// Notification Target Types
+enum NotificationTargetType {
+  INDIVIDUAL    // Single user by ID
+  BRANCH        // All users in a branch
+  TEAM          // All users in a team
+  ROLE          // All users with specific role
+  ALL           // All users in system
+}
+
+// Notification Priority
+enum NotificationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// Notification Status
+enum NotificationStatus {
+  DRAFT
+  SCHEDULED
+  SENT
+  FAILED
+}
+
+// Enhanced Notification model (keeping existing for compatibility)
+model Notification {
+  id                String    @id @default(uuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id])
+  title             String
+  message           String
+  isRead            Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// Super Admin Notification Campaign
+model NotificationCampaign {
+  id                String                @id @default(uuid())
+  title             String
+  message           String
+  priority          NotificationPriority  @default(MEDIUM)
+  status            NotificationStatus    @default(DRAFT)
+  targetType        NotificationTargetType
+  targetValue       String?               // employeeId, branchId, teamId, or role
+  scheduledAt       DateTime?
+  sentAt            DateTime?
+  createdById       String
+  createdBy         User                  @relation(fields: [createdById], references: [id])
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  // Relations
+  deliveries        NotificationDelivery[]
+
+  @@index([createdById])
+  @@index([status])
+  @@index([targetType])
+}
+
+// Individual notification deliveries
+model NotificationDelivery {
+  id                String               @id @default(uuid())
+  campaignId        String
+  campaign          NotificationCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User                 @relation(fields: [userId], references: [id])
+  isRead            Boolean              @default(false)
+  readAt            DateTime?
+  deliveredAt       DateTime             @default(now())
+
+  @@index([campaignId])
+  @@index([userId])
+  @@index([isRead])
+  @@unique([campaignId, userId])
+}
