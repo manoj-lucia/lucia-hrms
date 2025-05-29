@@ -14,8 +14,7 @@ import {
   XMarkIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  BellIcon,
-  MegaphoneIcon
+  BellIcon
 } from '@heroicons/react/24/outline';
 import NotificationBell from '@/components/dashboard/NotificationBell';
 
@@ -24,7 +23,7 @@ const navigation = [
   { name: 'Employees', href: '/employees', icon: UserGroupIcon },
   { name: 'Attendance', href: '/attendance', icon: CalendarIcon },
   { name: 'Leave', href: '/leave', icon: DocumentTextIcon },
-  { name: 'Announcements', href: '/admin/notifications', icon: MegaphoneIcon, adminOnly: true },
+  { name: 'Announcements', href: '/admin/notifications', icon: BellIcon, adminOnly: true },
   { name: 'Settings', href: '/settings', icon: CogIcon },
 ];
 
